@@ -1,0 +1,4 @@
+Implementation of natural gradient in python using Theano. 
+
+Contact: Razvan Pascanu (r.pascanu@gmail...)
+License: 3-clause BSD
