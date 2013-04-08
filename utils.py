@@ -104,6 +104,84 @@ def print_mem(context=None):
 def const(value):
     return TT.constant(numpy.asarray(value, dtype=theano.config.floatX))
 
+def gaussian(size, sigma):
+    # Function borrowed from bengioe_util
+
+    height = float(size)
+    width = float(size)
+    center_x = width  / 2. + 0.5
+    center_y = height / 2. + 0.5
+
+    gauss = numpy.zeros((height, width))
+
+    for i in xrange(1, int(height) + 1):
+        for j in xrange(1, int(height) + 1):
+            x_diff_sq = ((float(j) - center_x)/(sigma*width)) ** 2.
+            y_diff_sq = ((float(i) - center_y)/(sigma*height)) ** 2.
+            gauss[i-1][j-1] = numpy.exp( - (x_diff_sq + y_diff_sq) / 2.)
+
+    return gauss
+
+def lcn_std_diff(x,size=9):
+    # Function borrowed from bengioe_util
+    p = x.reshape((1,1,48,48))
+    #p = (p-TT.mean(p))/T.std(p)
+    g = gaussian(size,1.591/size)
+    g/=g.sum()
+    g = numpy.float32(g.reshape((1,1,size,size)))
+    mean = TT.nnet.conv.conv2d(p,TT.constant(g),
+                              (1,1,48,48),
+                              (1,1,size,size),
+                              'full').reshape((48+size-1,)*2)
+    mean = mean[size/2:48+size/2,
+                size/2:48+size/2]
+    meansq = TT.nnet.conv.conv2d(TT.sqr(p),TT.constant(g),
+                                (1,1,48,48),
+                                (1,1,size,size),
+                                'full').reshape((48+size-1,)*2)
+    meansq = meansq[size/2:48+size/2,
+                    size/2:48+size/2]
+    var = meansq - TT.sqr(mean)
+    var = TT.clip(var, 0, 1e30)
+    std = TT.sqrt(var)
+    std = TT.clip(std, TT.mean(std), 1e30)
+    out = (p - mean) / std
+    return out - out.min()
+
+def lcn(x,ishape,size=9):
+    # Function borrowed from bengioe_util
+    """
+    expects x to be tensor{3|4}, the first dimension being the number
+    of images, and the two last the shape of the image (which should be
+    given anyways for optimization purposes
+    """
+    inshape = (x.shape[0],1,ishape[0],ishape[1])
+    p = x.reshape(inshape)
+    #p = (p-TT.mean(p))/T.std(p)
+    g = gaussian(size,1.591/size)
+    g/=g.sum()
+    g = numpy.float32(g.reshape((1,1,size,size)))
+    mean = TT.nnet.conv.conv2d(p,TT.constant(g),
+                              None,
+                              (1,1,size,size),
+                              'full').reshape(
+                                  (x.shape[0],1)+(ishape[0]+size-1,)*2)
+    mean = mean[:,:,
+                size/2:ishape[0]+size/2,
+                size/2:ishape[1]+size/2]
+    v = (p - mean)#.dimshuffle('x','x',0,1)
+    var = TT.nnet.conv.conv2d(TT.sqr(v),TT.constant(g),
+                             None,
+                             (1,1,size,size),
+                             'full').reshape(
+                                  (x.shape[0],1)+(ishape[0]+size-1,)*2)
+    var = var[:,:,
+              size/2:ishape[0]+size/2,
+              size/2:ishape[1]+size/2]
+    std = TT.sqrt(var)
+    std_mean = TT.mean(TT.mean(std,axis=3),axis=2).dimshuffle(0,1,'x','x')
+    out = v / TT.maximum(std,std_mean)
+    return (out + 2.5 )/5# - out.min()
 
 def softmax(x):
     e = TT.exp(x)
