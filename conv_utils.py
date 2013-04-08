@@ -177,6 +177,7 @@ class LeNetConvPoolLayerLW(object):
                  image_shape,
                  poolsize=(2, 2),
                  name='conv',
+                 activ = TT.nnet.sigmoid,
                  W=None,
                  b=None):
 
@@ -218,6 +219,6 @@ class LeNetConvPoolLayerLW(object):
         pooled_out = downsample.max_pool_2d(input=conv_out,
                                             ds=poolsize,
                                             ignore_border=True)
-        self.output = TT.nnet.sigmoid(pooled_out +
+        self.output = activ(pooled_out +
                                       self.b.dimshuffle('x', 0, 'x', 'x'))
         self.params = [self.W, self.b]
