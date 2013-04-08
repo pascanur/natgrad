@@ -39,7 +39,7 @@ class convMat(object):
             pad = 0,
             activ = lambda x: TT.switch(x>0, x, 0),
             input_channels=1,
-            output_channels=15,
+            output_channels=16,
             kernel_shape=[9,9],
             image_shape = [48,48],
             name = 'l0',
@@ -53,7 +53,7 @@ class convMat(object):
         self.layer1 = HiddenLayerLW(
             self.rng,
             layer1_input,
-            15 * 8 * 8,
+            16 * 8 * 8,
             256,
             name = 'l1',
             activation = TT.tanh
@@ -62,7 +62,7 @@ class convMat(object):
         self.layer2 = HiddenLayerLW(
             self.rng,
             self.layer1.output,
-            7,
+            256,
             self.nout,
             name='l2',
             activation = TT.nnet.sigmoid
@@ -76,7 +76,7 @@ class convMat(object):
                              for x in self.params]
         ##### PARAMS
         self.inputs = [self.x, self.y]
-        membuf = TT.shared(numpy.zeros((state['cbs'], 7),
+        membuf = TT.shared(numpy.zeros((state['cbs'], self.nout),
                                        dtype=theano.config.floatX),
                            name='membuf')
         expanded_y = TT.set_subtensor(
